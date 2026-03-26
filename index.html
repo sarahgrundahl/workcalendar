@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arbejdskalender</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #f5f5f3; color: #1a1a1a; padding: 1.5rem; }
+.app { max-width: 860px; margin: 0 auto; }
+h1 { font-size: 20px; font-weight: 500; margin-bottom: 1.25rem; color: #1a1a1a; }
+.top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 10px; }
+.nav-group { display: flex; align-items: center; gap: 8px; }
+.nav-btn { background: none; border: 1px solid #ccc; border-radius: 8px; padding: 4px 12px; cursor: pointer; font-size: 14px; color: #1a1a1a; }
+.nav-btn:hover { background: #efefec; }
+.nav-label { font-size: 18px; font-weight: 500; min-width: 50px; text-align: center; }
+.legend { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 1rem; }
+.leg { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #666; }
+.leg-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+.view-toggle { display: flex; gap: 6px; }
+.vtbtn { background: none; border: 1px solid #ccc; border-radius: 8px; padding: 4px 14px; cursor: pointer; font-size: 13px; color: #666; }
+.vtbtn.active { background: #efefec; color: #1a1a1a; font-weight: 500; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; margin-bottom: 1.25rem; }
+.stat { background: #efefec; border-radius: 8px; padding: 10px 12px; }
+.stat .s-label { font-size: 11px; color: #666; margin-bottom: 3px; }
+.stat .s-val { font-size: 20px; font-weight: 500; }
+.s-work .s-val { color: #185FA5; }
+.s-home .s-val { color: #3B6D11; }
+.s-sick .s-val { color: #993C1D; }
+.s-off .s-val { color: #888; }
+.year-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+@media (max-width: 600px) {
+  .year-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+.mini-month { background: #fff; border: 1px solid #e0e0da; border-radius: 12px; padding: 10px; cursor: pointer; transition: border-color 0.15s; }
+.mini-month:hover { border-color: #aaa; }
+.mini-month.current-view { border: 2px solid #378ADD; }
+.mini-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.mini-name { font-size: 12px; font-weight: 500; }
+.mini-count { font-size: 11px; color: #185FA5; }
+.mini-wh { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 1px; margin-bottom: 2px; }
+.mini-wh span { text-align: center; font-size: 8px; color: #bbb; }
+.mini-grid { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 1px; }
+.mini-cell { aspect-ratio: 1; border-radius: 2px; font-size: 8px; display: flex; align-items: center; justify-content: center; }
+.mini-cell.empty { background: none; }
+.mini-cell.weekend { background: #f0f0ed; color: #bbb; }
+.mini-cell.s0 { background: #f0f0ed; }
+.mini-cell.s1 { background: #B5D4F4; }
+.mini-cell.s2 { background: #C0DD97; }
+.mini-cell.s3 { background: #f0f0ed; }
+.mini-cell.s4 { background: #F5C4B3; }
+.month-block { background: #fff; border: 1px solid #e0e0da; border-radius: 12px; padding: 1rem; }
+.month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.month-nav-label { font-size: 15px; font-weight: 500; }
+.week-header { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 4px; margin-bottom: 4px; }
+.week-header span { text-align: center; font-size: 11px; color: #bbb; padding: 2px 0; }
+.week-header span.wend { color: #d0d0cc; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 4px; }
+.day-cell { aspect-ratio: 1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; cursor: pointer; border: 1px solid transparent; user-select: none; }
+.day-cell:hover { opacity: 0.75; }
+.day-cell.empty { cursor: default; background: none; }
+.day-cell.empty:hover { opacity: 1; }
+.day-cell.weekend { background: #f0f0ed; color: #bbb; cursor: default; border-color: #e0e0da; }
+.day-cell.weekend:hover { opacity: 1; }
+.day-cell.state-0 { background: #f0f0ed; color: #888; border-color: #e0e0da; }
+.day-cell.state-1 { background: #E6F1FB; color: #0C447C; border-color: #85B7EB; }
+.day-cell.state-2 { background: #EAF3DE; color: #27500A; border-color: #97C459; }
+.day-cell.state-3 { background: #f0f0ed; color: #bbb; border-color: #e0e0da; text-decoration: line-through; }
+.day-cell.state-4 { background: #FAECE7; color: #712B13; border-color: #F0997B; }
+.summary-box { background: #fff; border: 1px solid #e0e0da; border-radius: 12px; padding: 1rem 1.25rem; margin-top: 1rem; }
+.summary-title { font-size: 13px; font-weight: 500; color: #666; margin-bottom: 10px; }
+.year-totals { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; margin-bottom: 10px; }
+.yt { background: #f5f5f3; border-radius: 8px; padding: 8px 10px; }
+.yt .yt-label { font-size: 11px; color: #666; }
+.yt .yt-val { font-size: 16px; font-weight: 500; color: #185FA5; }
+.skat-info { font-size: 13px; color: #1a1a1a; line-height: 1.6; }
+.export-btn { margin-top: 10px; width: 100%; padding: 8px; font-size: 13px; background: none; border: 1px solid #ccc; border-radius: 8px; cursor: pointer; color: #1a1a1a; }
+.export-btn:hover { background: #f0f0ed; }
+.data-box { background: #fff; border: 1px solid #e0e0da; border-radius: 12px; padding: 1rem 1.25rem; margin-top: 1rem; }
+.data-box-title { font-size: 13px; font-weight: 500; color: #666; margin-bottom: 10px; }
+.data-btn-row { display: flex; gap: 8px; }
+.data-btn { flex: 1; padding: 8px; font-size: 13px; background: none; border: 1px solid #ccc; border-radius: 8px; cursor: pointer; color: #1a1a1a; }
+.data-btn:hover { background: #f0f0ed; }
+.data-btn.danger { border-color: #F0997B; color: #712B13; }
+.data-btn.danger:hover { background: #FAECE7; }
+.data-feedback { font-size: 12px; margin-top: 8px; min-height: 18px; color: #3B6D11; }
+.data-feedback.err { color: #993C1D; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Arbejdskalender</h1>
+
+  <div class="top-bar">
+    <div class="nav-group">
+      <button class="nav-btn" id="prev-year">&#8592;</button>
+      <span class="nav-label" id="year-display"></span>
+      <button class="nav-btn" id="next-year">&#8594;</button>
+    </div>
+    <div class="view-toggle">
+      <button class="vtbtn" id="btn-year">Årsview</button>
+      <button class="vtbtn" id="btn-month">Månedview</button>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="leg"><div class="leg-dot" style="background:#E6F1FB;border:1px solid #85B7EB;"></div>På arbejde</div>
+    <div class="leg"><div class="leg-dot" style="background:#EAF3DE;border:1px solid #97C459;"></div>Hjemmefra</div>
+    <div class="leg"><div class="leg-dot" style="background:#FAECE7;border:1px solid #F0997B;"></div>Sygdom</div>
+    <div class="leg"><div class="leg-dot" style="background:#f0f0ed;border:1px solid #e0e0da;"></div>Fri / ikke registreret</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat s-work"><div class="s-label" id="lbl-work">Køredage</div><div class="s-val" id="cnt-work">0</div></div>
+    <div class="stat s-home"><div class="s-label" id="lbl-home">Hjemmearbejde</div><div class="s-val" id="cnt-home">0</div></div>
+    <div class="stat s-sick"><div class="s-label" id="lbl-sick">Sygedage</div><div class="s-val" id="cnt-sick">0</div></div>
+    <div class="stat s-off"><div class="s-label" id="lbl-off">Fridage</div><div class="s-val" id="cnt-off">0</div></div>
+  </div>
+
+  <div id="view-year"><div class="year-grid" id="year-grid"></div></div>
+  <div id="view-month" style="display:none;">
+    <div class="month-block">
+      <div class="month-nav">
+        <button class="nav-btn" id="prev-month">&#8592;</button>
+        <span class="month-nav-label" id="month-nav-label"></span>
+        <button class="nav-btn" id="next-month">&#8594;</button>
+      </div>
+      <div class="week-header" id="week-header"></div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+  </div>
+
+  <div class="summary-box">
+    <div class="summary-title">Årsopgørelse — køredage i alt</div>
+    <div class="year-totals">
+      <div class="yt"><div class="yt-label">Køredage registreret</div><div class="yt-val" id="year-work">0</div></div>
+      <div class="yt"><div class="yt-label">Hjemmearbejdsdage</div><div class="yt-val" id="year-home" style="color:#3B6D11;">0</div></div>
+    </div>
+    <div class="skat-info" id="skat-summary"></div>
+    <button class="export-btn" id="copy-btn">Kopier årsopgørelse til udklipsholder</button>
+  </div>
+
+  <div class="data-box">
+    <div class="data-box-title">Backup af data</div>
+    <div class="data-btn-row">
+      <button class="data-btn" id="export-json-btn">Eksporter data (.json)</button>
+      <button class="data-btn" id="import-json-btn">Importer data (.json)</button>
+    </div>
+    <div class="data-feedback" id="data-feedback"></div>
+    <input type="file" id="import-file-input" accept=".json" style="display:none;">
+  </div>
+</div>
+
+<script>
+const MONTHS_DA = ['Januar','Februar','Marts','April','Maj','Juni','Juli','August','September','Oktober','November','December'];
+const DAYS_SHORT = ['Man','Tir','Ons','Tor','Fre','Lør','Søn'];
+const STATE_CYCLE = [0,1,2,4,3];
+const STATE_LABELS = ['Fri','På arbejde','Hjemmefra','Fri (andet)','Sygdom'];
+let dayStates = {};
+const now = new Date();
+let curYear = now.getFullYear();
+let curMonth = now.getMonth();
+let viewMode = 'year';
+
+function key(y,m,d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function getState(k) { return dayStates[k] ?? 0; }
+function isWeekend(y,m,d) { const dow=new Date(y,m,d).getDay(); return dow===0||dow===6; }
+function daysInMonth(y,m) { return new Date(y,m+1,0).getDate(); }
+function firstOffset(y,m) { const d=new Date(y,m,1).getDay(); return d===0?6:d-1; }
+
+function loadStorage() {
+  try { const s=localStorage.getItem('arbejdskalender'); if(s) dayStates=JSON.parse(s); } catch(e){}
+}
+function saveStorage() {
+  try { localStorage.setItem('arbejdskalender',JSON.stringify(dayStates)); } catch(e){}
+}
+
+function monthStats(y,m) {
+  const dim=daysInMonth(y,m); let work=0,home=0,sick=0,workdays=0;
+  for(let d=1;d<=dim;d++){
+    if(isWeekend(y,m,d)) continue;
+    workdays++;
+    const st=getState(key(y,m,d));
+    if(st===1) work++;
+    else if(st===2) home++;
+    else if(st===4) sick++;
+  }
+  return {work,home,sick,workdays};
+}
+
+function yearStats(y) {
+  let work=0,home=0,sick=0,workdays=0;
+  for(let m=0;m<12;m++){const s=monthStats(y,m);work+=s.work;home+=s.home;sick+=s.sick;workdays+=s.workdays;}
+  return {work,home,sick,workdays};
+}
+
+function updateTopStats() {
+  const s = viewMode==='year' ? yearStats(curYear) : monthStats(curYear,curMonth);
+  const suffix = viewMode==='year' ? ' i år' : ' denne måned';
+  document.getElementById('cnt-work').textContent=s.work;
+  document.getElementById('cnt-home').textContent=s.home;
+  document.getElementById('cnt-sick').textContent=s.sick;
+  document.getElementById('cnt-off').textContent=Math.max(0,s.workdays-s.work-s.home-s.sick);
+  document.getElementById('lbl-work').textContent='Køredage'+suffix;
+  document.getElementById('lbl-home').textContent='Hjemmearbejde'+suffix;
+  document.getElementById('lbl-sick').textContent='Sygedage'+suffix;
+  document.getElementById('lbl-off').textContent='Fridage'+suffix;
+}
+
+function updateSummary() {
+  const s=yearStats(curYear);
+  document.getElementById('year-work').textContent=s.work;
+  document.getElementById('year-home').textContent=s.home;
+  const el=document.getElementById('skat-summary');
+  if(s.work===0){
+    el.textContent='Registrer køredage i kalenderen ovenfor.';
+  } else {
+    el.innerHTML=`Indtast <strong>${s.work} køredage</strong> på skat.dk under årsopgørelsen for ${curYear}.<br>Hjemmearbejde (${s.home} dage) og sygdom (${s.sick} dage) tæller ikke med i befordringsfradraget.`;
+  }
+}
+
+function buildYearView() {
+  const grid=document.getElementById('year-grid');
+  grid.innerHTML='';
+  for(let m=0;m<12;m++){
+    const dim=daysInMonth(curYear,m);
+    const off=firstOffset(curYear,m);
+    const s=monthStats(curYear,m);
+    const div=document.createElement('div');
+    div.className='mini-month'+(viewMode==='month'&&m===curMonth?' current-view':'');
+    const hdr=document.createElement('div'); hdr.className='mini-header';
+    hdr.innerHTML=`<span class="mini-name">${MONTHS_DA[m]}</span><span class="mini-count">${s.work>0?s.work+' kørte':''}</span>`;
+    div.appendChild(hdr);
+    const wh=document.createElement('div'); wh.className='mini-wh';
+    ['M','T','O','T','F','L','S'].forEach(l=>{const sp=document.createElement('span');sp.textContent=l;wh.appendChild(sp);});
+    div.appendChild(wh);
+    const g=document.createElement('div'); g.className='mini-grid';
+    for(let i=0;i<off;i++){const c=document.createElement('div');c.className='mini-cell empty';g.appendChild(c);}
+    for(let d=1;d<=dim;d++){
+      const c=document.createElement('div');
+      c.textContent=d;
+      if(isWeekend(curYear,m,d)){c.className='mini-cell weekend';}
+      else{const st=getState(key(curYear,m,d));c.className=`mini-cell s${st}`;}
+      g.appendChild(c);
+    }
+    div.appendChild(g);
+    div.addEventListener('click',()=>{curMonth=m;switchView('month');});
+    grid.appendChild(div);
+  }
+}
+
+function buildMonthView() {
+  document.getElementById('month-nav-label').textContent=`${MONTHS_DA[curMonth]} ${curYear}`;
+  const wh=document.getElementById('week-header');
+  wh.innerHTML='';
+  DAYS_SHORT.forEach((d,i)=>{const s=document.createElement('span');s.textContent=d;if(i>=5)s.className='wend';wh.appendChild(s);});
+  const grid=document.getElementById('cal-grid');
+  grid.innerHTML='';
+  const dim=daysInMonth(curYear,curMonth);
+  const off=firstOffset(curYear,curMonth);
+  for(let i=0;i<off;i++){const e=document.createElement('div');e.className='day-cell empty';grid.appendChild(e);}
+  for(let d=1;d<=dim;d++){
+    const cell=document.createElement('div');
+    const k=key(curYear,curMonth,d);
+    if(isWeekend(curYear,curMonth,d)){
+      cell.className='day-cell weekend';cell.textContent=d;
+    } else {
+      const st=getState(k);
+      cell.className=`day-cell state-${st}`;cell.textContent=d;
+      cell.title=STATE_LABELS[st];
+      cell.addEventListener('click',()=>{
+        const cur=getState(k);
+        const idx=STATE_CYCLE.indexOf(cur);
+        const next=STATE_CYCLE[(idx+1)%STATE_CYCLE.length];
+        if(next===0) delete dayStates[k]; else dayStates[k]=next;
+        saveStorage(); buildMonthView(); updateTopStats(); updateSummary(); buildYearView();
+      });
+    }
+    grid.appendChild(cell);
+  }
+}
+
+function switchView(mode) {
+  viewMode=mode;
+  document.getElementById('view-year').style.display=mode==='year'?'':'none';
+  document.getElementById('view-month').style.display=mode==='month'?'':'none';
+  document.getElementById('btn-year').classList.toggle('active',mode==='year');
+  document.getElementById('btn-month').classList.toggle('active',mode==='month');
+  document.getElementById('year-display').textContent=curYear;
+  if(mode==='year') buildYearView(); else buildMonthView();
+  updateTopStats(); updateSummary();
+}
+
+function exportText() {
+  const lines=[`Arbejdskalender ${curYear}\n`];
+  for(let m=0;m<12;m++){
+    const dim=daysInMonth(curYear,m);let mWork=[],mHome=[],mSick=[];
+    for(let d=1;d<=dim;d++){
+      if(isWeekend(curYear,m,d)) continue;
+      const st=getState(key(curYear,m,d));
+      if(st===1) mWork.push(d);
+      else if(st===2) mHome.push(d);
+      else if(st===4) mSick.push(d);
+    }
+    if(mWork.length||mHome.length||mSick.length){
+      lines.push(`${MONTHS_DA[m]}: ${mWork.length} køredage${mWork.length?' ('+mWork.join(', ')+')':''}`);
+      if(mHome.length) lines.push(`  Hjemmearbejde: dag ${mHome.join(', ')}`);
+      if(mSick.length) lines.push(`  Sygdom: dag ${mSick.join(', ')}`);
+    }
+  }
+  const total=yearStats(curYear).work;
+  lines.push(`\nTotal køredage ${curYear}: ${total}`);
+  return lines.join('\n');
+}
+
+loadStorage();
+document.getElementById('btn-year').addEventListener('click',()=>switchView('year'));
+document.getElementById('btn-month').addEventListener('click',()=>switchView('month'));
+document.getElementById('prev-year').addEventListener('click',()=>{curYear--;switchView(viewMode);});
+document.getElementById('next-year').addEventListener('click',()=>{curYear++;switchView(viewMode);});
+document.getElementById('prev-month').addEventListener('click',()=>{curMonth--;if(curMonth<0){curMonth=11;curYear--;}switchView('month');});
+document.getElementById('next-month').addEventListener('click',()=>{curMonth++;if(curMonth>11){curMonth=0;curYear++;}switchView('month');});
+document.getElementById('copy-btn').addEventListener('click',()=>{
+  navigator.clipboard.writeText(exportText()).then(()=>{
+    const btn=document.getElementById('copy-btn');btn.textContent='Kopieret!';
+    setTimeout(()=>btn.textContent='Kopier årsopgørelse til udklipsholder',2000);
+  });
+});
+document.getElementById('export-json-btn').addEventListener('click', () => {
+  const data = { version: 1, exported: new Date().toISOString(), states: dayStates };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `arbejdskalender-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showFeedback('Data eksporteret.', false);
+});
+
+document.getElementById('import-json-btn').addEventListener('click', () => {
+  document.getElementById('import-file-input').value = '';
+  document.getElementById('import-file-input').click();
+});
+
+document.getElementById('import-file-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      if (!parsed.states || typeof parsed.states !== 'object') throw new Error('Ugyldigt format');
+      const count = Object.keys(parsed.states).length;
+      if (!confirm(`Dette vil overskrive alle eksisterende registreringer med ${count} poster fra filen. Fortsæt?`)) return;
+      dayStates = parsed.states;
+      saveStorage();
+      switchView(viewMode);
+      showFeedback(`Import gennemført — ${count} dage indlæst.`, false);
+    } catch (err) {
+      showFeedback('Fejl: filen kunne ikke læses. Er det en gyldig backup-fil?', true);
+    }
+  };
+  reader.readAsText(file);
+});
+
+function showFeedback(msg, isErr) {
+  const el = document.getElementById('data-feedback');
+  el.textContent = msg;
+  el.className = 'data-feedback' + (isErr ? ' err' : '');
+  setTimeout(() => { el.textContent = ''; el.className = 'data-feedback'; }, 4000);
+}
+
+switchView('year');
+</script>
+</body>
+</html>
